@@ -20,7 +20,7 @@ ENABLED_PAGES = "1,2,3,4"
 CITY_ADCODE = "230604"                      
 
 # 日出日落位置（支持拼音，如 "Beijing" 或 "Haidian,Beijing"）
-WTTR_LOCATION = "Ranghulu,Daqing"            
+WTTR_LOCATION = "Daqing"            
 
 # 3. 屏幕显示文字
 # 天气页面左上角的自定义标题，你可以改成 "北京市 | 我的温馨小窝" 等等
