@@ -45,16 +45,24 @@ PUSH_URL = f"https://cloud.zectrix.com/open/v1/devices/{MAC_ADDRESS}/display/ima
 # --- 字体设置 ---
 FONT_PATH = "font.ttf"
 try:
-    font_huge = ImageFont.truetype(FONT_PATH, 65)
+    # 使用偶数尺寸字体，更好地对齐像素网格
+    font_huge = ImageFont.truetype(FONT_PATH, 64)
     font_title = ImageFont.truetype(FONT_PATH, 24)
     font_item = ImageFont.truetype(FONT_PATH, 18)
     font_small = ImageFont.truetype(FONT_PATH, 14)
-    font_tiny = ImageFont.truetype(FONT_PATH, 11)
+    font_tiny = ImageFont.truetype(FONT_PATH, 12)
     font_48 = ImageFont.truetype(FONT_PATH, 48)
     font_36 = ImageFont.truetype(FONT_PATH, 36)
+    font_smaller = ImageFont.truetype(FONT_PATH, 10)
 except:
     print("❌ 错误: 找不到 font.ttf")
     exit(1)
+
+
+def draw_text_aligned(draw, xy, text, font, fill=0):
+    """绘制文字时确保坐标对齐到整数像素"""
+    x, y = xy
+    draw.text((int(round(x)), int(round(y))), text, font=font, fill=fill)
 
 HEADERS = {'User-Agent': 'Mozilla/5.0'}
 
@@ -156,27 +164,28 @@ def task_zhihu():
         titles = ["数据获取失败"] * 10
 
     def draw_list(draw, page_title, items, start_idx):
-        draw.rounded_rectangle([(10, 10), (390, 45)], radius=8, fill=0)
-        draw.text((20, 15), page_title, font=font_title, fill=255)
-        y, last_idx = 55, start_idx
+        draw.rounded_rectangle([(10, 10), (390, 44)], radius=8, fill=0)
+        draw_text_aligned(draw, (20, 14), page_title, font_title, fill=255)
+        y, last_idx = 54, start_idx
         item_gap = 12
         line_height = 22
         for i in range(start_idx, len(items)):
             lines = get_wrapped_lines(items[i], 19)
             required_h = len(lines) * line_height
-            if y + required_h > 295: break
+            if y + required_h > 294: break
             current_num = i + 1
             draw.rounded_rectangle([(10, y), (36, y+24)], radius=6, fill=0)
             num_x = 18 if current_num < 10 else 11
-            draw.text((num_x, y+2), str(current_num), font=font_small, fill=255)
+            draw_text_aligned(draw, (num_x, y+2), str(current_num), font_small, fill=255)
             curr_y = y + 2
             for line in lines:
-                draw.text((45, curr_y), line, font=font_item, fill=0)
+                draw_text_aligned(draw, (45, curr_y), line, font_item, fill=0)
                 curr_y += line_height
             y += max(24, required_h) + item_gap
             last_idx = i + 1
             if y < 290:
-                draw.line([(45, y - item_gap/2), (380, y - item_gap/2)], fill=0, width=1)
+                sep_y = int(round(y - item_gap/2))
+                draw.line([(45, sep_y), (380, sep_y)], fill=0, width=1)
         return last_idx
 
     # 判断是否推第一页
@@ -203,34 +212,30 @@ def task_calendar():
     now_utc = datetime.utcnow()
     now = now_utc + timedelta(hours=8)
     y, m, today = now.year, now.month, now.day
-    draw.text((20, 10), str(m), font=font_huge, fill=0)
-    draw.text((90, 20), now.strftime("%B"), font=font_title, fill=0)
-    draw.text((90, 48), str(y), font=font_item, fill=0)
+    draw_text_aligned(draw, (20, 10), str(m), font_huge, fill=0)
+    draw_text_aligned(draw, (90, 20), now.strftime("%B"), font_title, fill=0)
+    draw_text_aligned(draw, (90, 48), str(y), font_item, fill=0)
     draw.line([(20, 78), (380, 78)], fill=0, width=2)
     headers = ["日", "一", "二", "三", "四", "五", "六"]
     col_w = 53
     for i, h in enumerate(headers):
-        draw.text((25 + i*col_w, 88), h, font=font_small, fill=0)
+        draw_text_aligned(draw, (25 + i*col_w, 88), h, font_small, fill=0)
     calendar.setfirstweekday(calendar.SUNDAY)
     cal = calendar.monthcalendar(y, m)
-    curr_y, row_h = 115, 38
+    curr_y, row_h = 114, 38
     for week in cal:
         for c, day in enumerate(week):
             if day != 0:
                 dx = 25 + c * col_w
                 if day == today:
                     draw.rounded_rectangle([(dx-3, curr_y-2), (dx+35, curr_y+32)], radius=5, outline=0)
-                draw.text((dx+2, curr_y), str(day), font=font_item, fill=0)
+                draw_text_aligned(draw, (dx+2, curr_y), str(day), font_item, fill=0)
                 bottom_text = get_lunar_or_festival(y, m, day)
                 if bottom_text:
                     if len(bottom_text) > 3:
-                        try:
-                            font_smaller = ImageFont.truetype(FONT_PATH, 10)
-                            draw.text((dx+2, curr_y+18), bottom_text, font=font_smaller, fill=0)
-                        except:
-                            draw.text((dx+2, curr_y+18), bottom_text[:3], font=font_tiny, fill=0)
+                        draw_text_aligned(draw, (dx+2, curr_y+18), bottom_text, font_smaller, fill=0)
                     else:
-                        draw.text((dx+2, curr_y+18), bottom_text, font=font_tiny, fill=0)
+                        draw_text_aligned(draw, (dx+2, curr_y+18), bottom_text, font_tiny, fill=0)
         curr_y += row_h
     push_image(img, 3)
 
@@ -316,13 +321,13 @@ def task_weather_dashboard():
 
     weather = get_hybrid_weather()
     if weather["temp_curr"] == 0 and not weather["forecasts"]:
-        draw.text((20, 50), "天气数据获取失败，请检查 API Key 或网络", font=font_item, fill=0)
+        draw_text_aligned(draw, (20, 50), "天气数据获取失败，请检查 API Key 或网络", font_item, fill=0)
         push_image(img, 4)
         return
 
     # 这里使用用户自定义的显示文字
-    draw.text((20, 10), CITY_DISPLAY_NAME, font=font_title, fill=0)
-    
+    draw_text_aligned(draw, (20, 10), CITY_DISPLAY_NAME, font_title, fill=0)
+
     now_beijing = datetime.utcnow() + timedelta(hours=8)
     update_time = now_beijing.strftime("%H:%M")
     time_text = f"更新: {update_time}"
@@ -331,32 +336,32 @@ def task_weather_dashboard():
         time_width = bbox[2] - bbox[0]
     except:
         time_width = len(time_text) * 8
-    draw.text((390 - time_width, 12), time_text, font=font_small, fill=0)
+    draw_text_aligned(draw, (390 - time_width, 12), time_text, font_small, fill=0)
 
-    draw.text((25, 40), f"{weather['temp_curr']}°C", font=font_48, fill=0)
-    draw.text((25, 100), f"{weather['temp_low']}°/{weather['temp_high']}°", font=font_item, fill=0)
-    draw.text((150, 45), f"{weather['weather']}", font=font_36, fill=0)
+    draw_text_aligned(draw, (25, 40), f"{weather['temp_curr']}°C", font_48, fill=0)
+    draw_text_aligned(draw, (25, 100), f"{weather['temp_low']}°/{weather['temp_high']}°", font_item, fill=0)
+    draw_text_aligned(draw, (150, 45), f"{weather['weather']}", font_36, fill=0)
 
     draw.rounded_rectangle([(235, 45), (385, 130)], radius=8, outline=0, fill=0)
-    draw.text((250, 55), f"{weather['wind_info']}", font=font_small, fill=255)
-    draw.text((250, 80), f"湿度 {weather['humidity']}", font=font_small, fill=255)
-    draw.text((250, 105), f"体感 {weather['feel_temp']}", font=font_small, fill=255)
+    draw_text_aligned(draw, (250, 55), f"{weather['wind_info']}", font_small, fill=255)
+    draw_text_aligned(draw, (250, 80), f"湿度 {weather['humidity']}", font_small, fill=255)
+    draw_text_aligned(draw, (250, 105), f"体感 {weather['feel_temp']}", font_small, fill=255)
 
-    draw.text((25, 135), f"日出 {weather['sunrise']}   日落 {weather['sunset']}", font=font_item, fill=0)
+    draw_text_aligned(draw, (25, 135), f"日出 {weather['sunrise']}   日落 {weather['sunset']}", font_item, fill=0)
 
     draw.line([(20, 160), (380, 160)], fill=0, width=1)
     x_positions = [30, 200]
     for i, day in enumerate(weather['forecasts'][:2]):
         x = x_positions[i]
-        draw.text((x, 175), day["date"], font=font_item, fill=0)
-        draw.text((x, 200), day["weather"], font=font_item, fill=0)
-        draw.text((x, 225), f"{day['temp_low']}°~{day['temp_high']}°", font=font_item, fill=0)
+        draw_text_aligned(draw, (x, 175), day["date"], font_item, fill=0)
+        draw_text_aligned(draw, (x, 200), day["weather"], font_item, fill=0)
+        draw_text_aligned(draw, (x, 225), f"{day['temp_low']}°~{day['temp_high']}°", font_item, fill=0)
 
     advice = get_clothing_advice(weather['temp_curr'])
     draw.line([(20, 250), (380, 250)], fill=0, width=1)
     advice_lines = [advice[i:i+18] for i in range(0, len(advice), 18)]
     for i, line in enumerate(advice_lines[:2]):
-        draw.text((20, 262 + i*24), f"[衣] {line}", font=font_item, fill=0)
+        draw_text_aligned(draw, (20, 262 + i*24), f"[衣] {line}", font_item, fill=0)
 
     push_image(img, 4)
 
