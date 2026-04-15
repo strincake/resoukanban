@@ -17,14 +17,14 @@ ENABLED_PAGES = "1,2,3,4"
 
 # 2. 天气城市设置
 # 高德天气城市代码（默认：天津市津南区 120112，北京是 110000）
-CITY_ADCODE = "120112"                      
+CITY_ADCODE = "230604"                      
 
 # 日出日落位置（支持拼音，如 "Beijing" 或 "Haidian,Beijing"）
-WTTR_LOCATION = "Jinnan,Tianjin"            
+WTTR_LOCATION = "Ranghulu,Daqing"            
 
 # 3. 屏幕显示文字
 # 天气页面左上角的自定义标题，你可以改成 "北京市 | 我的温馨小窝" 等等
-CITY_DISPLAY_NAME = "津南区 | 天大北洋园"      
+CITY_DISPLAY_NAME = "大庆 | 让胡路区"      
 
 
 # =====================================================================
