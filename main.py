@@ -350,7 +350,7 @@ def task_weather_dashboard():
         x = x_positions[i]
         draw.text((x, 175), day["date"], font=font_item, fill=0)
         draw.text((x, 200), day["weather"], font=font_item, fill=0)
-        draw.text((x, 220), f"{day['temp_low']}°~{day['temp_high']}°", font=font_item, fill=0)
+        draw.text((x, 225), f"{day['temp_low']}°~{day['temp_high']}°", font=font_item, fill=0)
 
     advice = get_clothing_advice(weather['temp_curr'])
     draw.line([(20, 250), (380, 250)], fill=0, width=1)
