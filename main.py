@@ -11,18 +11,20 @@ from zhdate import ZhDate
 # =====================================================================
 
 # 1. 控制推送哪几页？
-# 墨水屏共 5 页：1=知乎上, 2=知乎下, 3=日历, 4=天气
-# 如果某天你不想看知乎了，直接改成 "3,4" 即可。
+# 墨水屏共 5 页：1=热搜上, 2=热搜下, 3=日历, 4=天气
 ENABLED_PAGES = "1,2,3,4"
 
-# 2. 天气城市设置
+# 2. 热搜源设置：目前支持 'zhihu', 'bilibili', 'github'
+HOTLIST_SOURCE = "zhihu"  # 在这里修改你想看的热搜源
+
+# 3. 天气城市设置
 # 高德天气城市代码（默认：天津市津南区 120112，北京是 110000）
 CITY_ADCODE = "230604"                      
 
 # 日出日落位置（支持拼音，如 "Beijing" 或 "Haidian,Beijing"）
 WTTR_LOCATION = "Daqing"            
 
-# 3. 屏幕显示文字
+# 4. 屏幕显示文字
 # 天气页面左上角的自定义标题，你可以改成 "北京市 | 我的温馨小窝" 等等
 CITY_DISPLAY_NAME = "大庆 | 让胡路区"      
 
@@ -56,7 +58,8 @@ except:
     print("❌ 错误: 找不到 font.ttf")
     exit(1)
 
-HEADERS = {'User-Agent': 'Mozilla/5.0'}
+# 使用更通用的请求头
+HEADERS = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
 
 # --- 工具函数 ---
 def get_wrapped_lines(text, max_chars=18):
@@ -145,15 +148,37 @@ def get_lunar_or_festival(y, m, d):
     except:
         return ""
 
-# --- 任务：知乎热榜 ---
-def task_zhihu():
-    print("获取知乎热榜...")
+# --- 获取数据的逻辑 (支持切换源) ---
+def get_hotlist_data(source):
+    titles = []
+    print(f"正在从 {source} 获取数据...")
     try:
-        url = "https://api.zhihu.com/topstory/hot-list"
-        res = requests.get(url, headers=HEADERS, timeout=10).json()
-        titles = [item['target']['title'] for item in res['data']]
-    except:
-        titles = ["数据获取失败"] * 10
+        if source == "zhihu":
+            url = "https://api.zhihu.com/topstory/hot-list"
+            res = requests.get(url, headers=HEADERS, timeout=10).json()
+            titles = [item['target']['title'] for item in res['data']]
+        elif source == "bilibili":
+            url = "https://api.bilibili.com/x/web-interface/wbi/search/square?limit=20"
+            res = requests.get(url, headers=HEADERS, timeout=10).json()
+            titles = [item['show_name'] for item in res['data']['trending']['list']]
+        elif source == "github":
+            # GitHub 今日最热门仓库（近7天星标最多）
+            date_str = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+            url = f"https://api.github.com/search/repositories?q=stars:>500+created:>{date_str}&sort=stars&order=desc"
+            res = requests.get(url, headers=HEADERS, timeout=10).json()
+            titles = [f"{item['full_name']}: {item['description'][:50] if item['description'] else 'No desc'}" for item in res['items']]
+        else:
+            titles = ["不支持的数据源"]
+    except Exception as e:
+        print(f"获取失败: {e}")
+        titles = ["数据获取失败，请检查配置"] * 10
+    return titles[:20]
+
+# --- 任务：热搜看板 ---
+def task_hotlist():
+    source_map = {"zhihu": "知乎热榜", "bilibili": "B站热搜", "github": "GitHub 热门"}
+    titles = get_hotlist_data(HOTLIST_SOURCE)
+    title_display = source_map.get(HOTLIST_SOURCE, "热门看板")
 
     def draw_list(draw, page_title, items, start_idx):
         draw.rounded_rectangle([(10, 10), (390, 45)], radius=8, fill=0)
@@ -179,22 +204,19 @@ def task_zhihu():
                 draw.line([(45, y - item_gap/2), (380, y - item_gap/2)], fill=0, width=1)
         return last_idx
 
-    # 判断是否推第一页
     if "1" in ENABLED_PAGES:
         img1 = Image.new('1', (400, 300), color=255)
-        next_s = draw_list(ImageDraw.Draw(img1), "◆ 知乎热榜 (一)", titles, 0)
+        next_s = draw_list(ImageDraw.Draw(img1), f"◆ {title_display} (一)", titles, 0)
         push_image(img1, 1)
     else:
-        # 如果不推第1页，但也需要算出 next_s 给第2页用
-        next_s = 7 # 粗略估计一页放7条
+        next_s = 7 
 
-    # 判断是否推第二页
     if "2" in ENABLED_PAGES:
         img2 = Image.new('1', (400, 300), color=255)
-        draw_list(ImageDraw.Draw(img2), "◆ 知乎热榜 (二)", titles, next_s)
+        draw_list(ImageDraw.Draw(img2), f"◆ {title_display} (二)", titles, next_s)
         push_image(img2, 2)
 
-# --- 任务：日历（北京时间） ---
+# --- 任务：日历（保持不变） ---
 def task_calendar():
     if "3" not in ENABLED_PAGES: return
     print("生成 Page 3: 日历...")
@@ -234,7 +256,7 @@ def task_calendar():
         curr_y += row_h
     push_image(img, 3)
 
-# --- 混合天气获取 ---
+# --- 混合天气获取（保持不变） ---
 def get_hybrid_weather():
     result = {
         "city": CITY_DISPLAY_NAME.split("|")[0].strip(), "weather": "未知", "temp_curr": 0, 
@@ -307,7 +329,7 @@ def get_hybrid_weather():
 
     return result
 
-# --- 任务：天气看板 ---
+# --- 任务：天气看板（保持不变） ---
 def task_weather_dashboard():
     if "4" not in ENABLED_PAGES: return
     print("生成 Page 4: 混合天气看板...")
@@ -320,7 +342,6 @@ def task_weather_dashboard():
         push_image(img, 4)
         return
 
-    # 这里使用用户自定义的显示文字
     draw.text((20, 10), CITY_DISPLAY_NAME, font=font_title, fill=0)
     
     now_beijing = datetime.utcnow() + timedelta(hours=8)
@@ -367,12 +388,12 @@ if __name__ == "__main__":
         exit(1)
         
     print("🚀 开始执行墨水屏推送任务...")
-    print(f"📊 当前启用的页面: {ENABLED_PAGES}")
     
-    if "1" in ENABLED_PAGES or "2" in ENABLED_PAGES:
-        task_zhihu()
-    
+    # 执行热搜任务
+    task_hotlist()
+    # 执行日历任务
     task_calendar()
+    # 执行天气任务
     task_weather_dashboard()
         
     print("🎉 所有任务执行完毕！")
