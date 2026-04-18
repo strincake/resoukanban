@@ -85,7 +85,7 @@ def push_image(img, page_id):
     if str(page_id) not in ENABLED_PAGES:
         print(f"⏩ Page {page_id} 未启用，跳过推送。")
         return
-        
+
     img.save(f"page_{page_id}.png")
     api_headers = {"X-API-Key": API_KEY}
     files = {"images": (f"page_{page_id}.png", open(f"page_{page_id}.png", "rb"), "image/png")}
@@ -95,6 +95,19 @@ def push_image(img, page_id):
         print(f"✅ Page {page_id} 推送成功: {res.status_code}")
     except Exception as e:
         print(f"❌ Page {page_id} 推送失败: {e}")
+
+def delete_page(page_id):
+    """删除指定页面，调用 DELETE 接口清除本地缓存"""
+    delete_url = f"https://cloud.zectrix.com/open/v1/devices/{MAC_ADDRESS}/display/pages/{page_id}"
+    api_headers = {"X-API-Key": API_KEY}
+    try:
+        res = requests.delete(delete_url, headers=api_headers)
+        if res.status_code == 200:
+            print(f"🗑️ Page {page_id} 已删除")
+        else:
+            print(f"⚠️ Page {page_id} 删除失败: {res.status_code} - {res.text}")
+    except Exception as e:
+        print(f"❌ Page {page_id} 删除异常: {e}")
 
 # --- 节气与农历 ---
 def get_solar_term(year, month, day):
@@ -209,16 +222,21 @@ def task_hotlist():
         next_s = draw_list(ImageDraw.Draw(img1), f"◆ {title_display} (一)", titles, 0)
         push_image(img1, 1)
     else:
-        next_s = 7 
+        next_s = 7
+        delete_page(1)
 
     if "2" in ENABLED_PAGES:
         img2 = Image.new('1', (400, 300), color=255)
         draw_list(ImageDraw.Draw(img2), f"◆ {title_display} (二)", titles, next_s)
         push_image(img2, 2)
+    else:
+        delete_page(2)
 
 # --- 任务：日历（保持不变） ---
 def task_calendar():
-    if "3" not in ENABLED_PAGES: return
+    if "3" not in ENABLED_PAGES:
+        delete_page(3)
+        return
     print("生成 Page 3: 日历...")
     img = Image.new('1', (400, 300), color=255)
     draw = ImageDraw.Draw(img)
@@ -331,7 +349,9 @@ def get_hybrid_weather():
 
 # --- 任务：天气看板（保持不变） ---
 def task_weather_dashboard():
-    if "4" not in ENABLED_PAGES: return
+    if "4" not in ENABLED_PAGES:
+        delete_page(4)
+        return
     print("生成 Page 4: 混合天气看板...")
     img = Image.new('1', (400, 300), color=255)
     draw = ImageDraw.Draw(img)
