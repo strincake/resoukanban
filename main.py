@@ -187,37 +187,78 @@ def get_hotlist_data(source):
         titles = ["数据获取失败，请检查配置"] * 10
     return titles[:20]
 
+
 # --- 任务：热搜看板 ---
 def task_hotlist():
+    if "1" not in ENABLED_PAGES and "2" not in ENABLED_PAGES:
+        return
+        
     source_map = {"zhihu": "知乎热榜", "bilibili": "B站热搜", "github": "GitHub 热门"}
     titles = get_hotlist_data(HOTLIST_SOURCE)
     title_display = source_map.get(HOTLIST_SOURCE, "热门看板")
 
+    # 🌟 核心优化：按像素真实宽度计算换行，解决中英文混排留白问题
+    def wrap_text_by_pixels(draw, text, font, max_width):
+        lines = []
+        current_line = ""
+        for char in text:
+            test_line = current_line + char
+            # 测量加上这个字符后的真实像素宽度
+            try:
+                w = draw.textlength(test_line, font=font)
+            except AttributeError:
+                w = draw.textbbox((0,0), test_line, font=font)[2]
+                
+            if w <= max_width:
+                current_line = test_line
+            else:
+                lines.append(current_line)
+                current_line = char
+        if current_line:
+            lines.append(current_line)
+        return lines
+
     def draw_list(draw, page_title, items, start_idx):
         draw.rounded_rectangle([(10, 10), (390, 45)], radius=8, fill=0)
         draw.text((20, 15), page_title, font=font_title, fill=255)
+        
         y, last_idx = 55, start_idx
-        item_gap = 12
-        line_height = 22
+        item_gap = 12       # 条目间距
+        line_height = 23    # 18号字的行高
+        
         for i in range(start_idx, len(items)):
-            lines = get_wrapped_lines(items[i], 19)
+            # 屏幕总宽400，文字从X=45开始，右边留白15，所以最大像素宽度是 340
+            lines = wrap_text_by_pixels(draw, items[i], font_item, max_width=340) 
+            
             required_h = len(lines) * line_height
-            if y + required_h > 295: break
+            if y + required_h > 295: 
+                break
+            
             current_num = i + 1
+            
+            # 左侧黑底数字序号框 (适配 18 号字)
             draw.rounded_rectangle([(10, y), (36, y+24)], radius=6, fill=0)
             num_x = 18 if current_num < 10 else 11
-            draw.text((num_x, y+2), str(current_num), font=font_small, fill=255)
-            curr_y = y + 2
+            draw.text((num_x, y+3), str(current_num), font=font_small, fill=255)
+            
+            curr_y = y + 1
             for line in lines:
                 draw.text((45, curr_y), line, font=font_item, fill=0)
                 curr_y += line_height
+                
             y += max(24, required_h) + item_gap
             last_idx = i + 1
+            
+            # 画分割线
             if y < 290:
                 draw.line([(45, y - item_gap/2), (380, y - item_gap/2)], fill=0, width=1)
+                
         return last_idx
 
+    next_s = 0
     if "1" in ENABLED_PAGES:
+        print("生成 Page 1: 热搜 (上)...")
+        # 🔧修改点 1：将 '1' 改为 'L'
         img1 = Image.new('1', (400, 300), color=255)
         next_s = draw_list(ImageDraw.Draw(img1), f"◆ {title_display} (一)", titles, 0)
         push_image(img1, 1)
@@ -226,8 +267,11 @@ def task_hotlist():
         delete_page(1)
 
     if "2" in ENABLED_PAGES:
+        print("生成 Page 2: 热搜 (下)...")
+        # 🔧修改点 2：将 '1' 改为 'L'
         img2 = Image.new('1', (400, 300), color=255)
-        draw_list(ImageDraw.Draw(img2), f"◆ {title_display} (二)", titles, next_s)
+        start_index = next_s if "1" in ENABLED_PAGES else 7
+        draw_list(ImageDraw.Draw(img2), f"◆ {title_display} (二)", titles, start_index)
         push_image(img2, 2)
     else:
         delete_page(2)
@@ -238,6 +282,7 @@ def task_calendar():
         delete_page(3)
         return
     print("生成 Page 3: 日历...")
+    # 🔧修改点 3：将 '1' 改为 'L'
     img = Image.new('1', (400, 300), color=255)
     draw = ImageDraw.Draw(img)
     now_utc = datetime.utcnow()
@@ -347,12 +392,13 @@ def get_hybrid_weather():
 
     return result
 
-# --- 任务：天气看板（保持不变） ---
+# --- 任务：天气看板 ---
 def task_weather_dashboard():
     if "4" not in ENABLED_PAGES:
         delete_page(4)
         return
     print("生成 Page 4: 混合天气看板...")
+    # 🔧修改点 4：将 '1' 改为 'L'
     img = Image.new('1', (400, 300), color=255)
     draw = ImageDraw.Draw(img)
 
